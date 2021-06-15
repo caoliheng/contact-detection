@@ -1,4 +1,5 @@
 import time
+import numpy as np
 
 import dynamic_graph_manager_cpp_bindings
 from robot_properties_solo.solo8wrapper import Solo8Config 
