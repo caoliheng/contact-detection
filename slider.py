@@ -23,17 +23,14 @@ while (True):
         next_time += dt
 
         head.read()
+        slider_P = head.get_sensor('slider_positions')
+        joint_P = head.get_sensor('joint_positions')
+        joint_V = head.get_sensor('joint_velocities')
 
-        slider_pos = head.get_sensor('slider_positions')
-        joint_pos = head.get_sensor('joint_positions')
-        joint_velocities = head.get_sensor('joint_velocities')
-
-
-        # target = np.array()
-        target = slider_pos[0]/2 * angle_adjust
+        target = slider_P[0]/2 * angle_adjust
 
 
-        tau = K*(target - joint_pos) - D * joint_velocities
+        tau = K*(target - joint_P) - D*joint_V
 
         head.set_control('ctrl_joint_torques', tau)
         head.write()

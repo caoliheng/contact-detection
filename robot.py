@@ -1,3 +1,5 @@
+from my_functions import *
+
 import time
 import numpy as np
 
@@ -7,46 +9,54 @@ from robot_properties_solo.solo8wrapper import Solo8Config
 # Create the dgm communication to the control process.
 head = dynamic_graph_manager_cpp_bindings.DGMHead(Solo8Config.dgm_yaml_path)
 
-
-D = 0.05
+K = 5
+D = 0.1
 dt = 0.001
 next_time = time.time() + dt
 
-# new
-# constant
-K = 6
+
+###
+leg_down = 0.1
+leg_up = 0.2
+Targets = (
+    get_target(leg_down, leg_up, leg_up, leg_down),
+    get_target(leg_up, leg_down, leg_down, leg_up),
+)
+
+
+L = None
+i_Targets = 0
+i_L = -1
 
 
 # In your control loop:
-while (True):
+while True:
     if time.time() >= next_time:
         next_time += dt
 
-        ###
-        # Get the latest measurements from the shared memory.
+        # read
         head.read()
+        slider_P = head.get_sensor('slider_positions')[0]
+        joint_P = head.get_sensor('joint_positions')
+        joint_V = head.get_sensor('joint_velocities')
 
-        ###
-        # A very simple example D controller.
+        if L is None or i_L >= len(L):
+            L = np.linspace(joint_P, Targets[i_Targets], num=650)
+            i_L = 0
+            i_Targets = (i_Targets + 1) % len(Targets)
 
-        # Read the joint velocities.
-        # joint_velocities = head.get_sensor('joint_velocities')
+        
 
-        # new
-        slider_pos = head.get_sensor('slider_positions')[0]
-        joint_pos = head.get_sensor('joint_positions')
-        joint_velocities = head.get_sensor('joint_velocities')
 
-        # Set the joint torques.
-        # tau = -D * joint_velocities
+        target = L[i_L]
+        i_L += 1
 
-        # new
-        tau = K*(slider_pos - joint_pos) - D * joint_velocities
+        tau = K*(target - joint_P) - D*joint_V
 
+        # write
         head.set_control('ctrl_joint_torques', tau)
-
-        ###
-        # Write the results into shared memory again.
         head.write()
+
+    L = np.linspace(joint_P, )
 
     time.sleep(0.0001)
