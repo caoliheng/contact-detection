@@ -40,12 +40,15 @@ while True:
         joint_P = head.get_sensor('joint_positions')
         joint_V = head.get_sensor('joint_velocities')
 
+        if slider_P > 0.5:
+            head.set_control('ctrl_joint_torques', np.zeros(8))
+            head.write()
+            break
+
         if L is None or i_L >= len(L):
-            L = np.linspace(joint_P, Targets[i_Targets], num=650)
+            L = np.linspace(joint_P, Targets[i_Targets], num=300)
             i_L = 0
             i_Targets = (i_Targets + 1) % len(Targets)
-
-        
 
 
         target = L[i_L]
@@ -56,7 +59,5 @@ while True:
         # write
         head.set_control('ctrl_joint_torques', tau)
         head.write()
-
-    L = np.linspace(joint_P, )
 
     time.sleep(0.0001)
