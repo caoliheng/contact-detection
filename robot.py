@@ -17,10 +17,16 @@ next_time = time.time() + dt
 
 ###
 leg_down = 0.1
-leg_up = 0.2
+leg_up = 0.25
+extend = -0.015  # extension constant
+
 Targets = (
-    get_target(leg_down, leg_up, leg_up, leg_down),
-    get_target(leg_up, leg_down, leg_down, leg_up),
+    get_target(leg_down-extend, leg_down, leg_up, leg_up, leg_up, leg_up, leg_down+extend, leg_down),
+    get_target(leg_up, leg_up, leg_down-extend, leg_down, leg_down+extend, leg_down, leg_up, leg_up),
+    # get_target(leg_down-extend, leg_down, leg_up, leg_up, leg_up, leg_up, leg_down+extend, leg_down),  wrong direction
+    # get_target(leg_up, leg_up, leg_down-extend, leg_down, leg_down+extend, leg_down, leg_up, leg_up),
+    # get_target(leg_down, leg_up, leg_up, leg_down),
+    # get_target(leg_up, leg_down, leg_down, leg_up),
 )
 
 
@@ -36,17 +42,17 @@ while True:
 
         # read
         head.read()
-        slider_P = head.get_sensor('slider_positions')[0]
+        slider_P = head.get_sensor('slider_positions')
         joint_P = head.get_sensor('joint_positions')
         joint_V = head.get_sensor('joint_velocities')
 
-        if slider_P > 0.5:
+        if slider_P[0] > 0.5:
             head.set_control('ctrl_joint_torques', np.zeros(8))
             head.write()
             break
 
         if L is None or i_L >= len(L):
-            L = np.linspace(joint_P, Targets[i_Targets], num=300)
+            L = np.linspace(joint_P, Targets[i_Targets], num=250)
             i_L = 0
             i_Targets = (i_Targets + 1) % len(Targets)
 

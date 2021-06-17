@@ -27,8 +27,13 @@ while (True):
         joint_P = head.get_sensor('joint_positions')
         joint_V = head.get_sensor('joint_velocities')
 
-        target = slider_P[0]/2 * angle_adjust
+        if slider_P[1] > 0.5:
+            head.set_control('ctrl_joint_torques', np.zeros(8))
+            head.write()
+            break
 
+        target = slider_P[0]/2 * angle_adjust
+        target[2:] = np.zeros(6)
 
         tau = K*(target - joint_P) - D*joint_V
 
