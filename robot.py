@@ -5,7 +5,7 @@ import pinocchio as pin
 import dynamic_graph_manager_cpp_bindings
 from robot_properties_solo.solo8wrapper import Solo8Config
 from dynamic_graph_head import ThreadHead, Vicon, HoldPDController
-import imu_core.imu_core_cpp as IMU
+# import imu_core.imu_core_cpp as IMU
 
 
 def get_target(*args):
@@ -146,6 +146,10 @@ class MyController:
         self.fz = np.zeros(4)
         self.fz_norm = np.zeros(4)
 
+
+        ###
+        self.robot = Solo8Config.buildRobotWrapper()
+
     def warmup(self, thread_head):
         self.zero_pos = self.joint_positions.copy()
 
@@ -178,34 +182,35 @@ class MyController:
         return np.hstack(thread_head.vicon.get_state(name1 + '/' + (name1 if name2 is None else name2)))
     
     def _vicon(self, thread_head):
+        self.vicon_solo = self.get_vicon('solo8v2')
         self.vicon_leg_fr = self.get_vicon('solo8_fr', 'hopper_foot')
         self.vicon_leg_hl = self.get_vicon('solo8_hl', 'hopper_foot')
         self.vicon_leg_hr = self.get_vicon('solo8_hr', 'hopper_foot')
-        self.vicon_solo = self.get_vicon('solo8v2')
+        
 
     def _move(self, thread_head):
-        if self.with_sliders:
-            self.des_position = self.slider_scale * (
-                self.map_sliders(self.slider_positions) - self.slider_zero_pos
-                ) + self.zero_pos
-        else:
-            # self.des_position = self.zero_pos
+        # if self.with_sliders:
+        #     self.des_position = self.slider_scale * (
+        #         self.map_sliders(self.slider_positions) - self.slider_zero_pos
+        #         ) + self.zero_pos
+        # else:
+        #     # self.des_position = self.zero_pos
 
-            if self.L is None or self.i_L >= len(self.L):
-                self.L = np.linspace(self.joint_positions,
-                                    self.Targets[self.i_Targets], num=self.num)
-                self.i_L = 0
-                self.i_Targets = (self.i_Targets + 1) % len(self.Targets)
+        if self.L is None or self.i_L >= len(self.L):
+            self.L = np.linspace(self.joint_positions,
+                                self.Targets[self.i_Targets], num=self.num)
+            self.i_L = 0
+            self.i_Targets = (self.i_Targets + 1) % len(self.Targets)
 
-            self.des_position = self.L[self.i_L]
-            self.i_L += 1
+        self.des_position = self.L[self.i_L]
+        self.i_L += 1
 
         self.tau = self.Kp * (self.des_position - self.joint_positions) - self.Kd * self.joint_velocities
 
     def _GRF(self, thread_head):
         head = thread_head.head
-        robot = head.robot
-        PR = head._robot.pin_robot
+        robot = Solo8Config.buildRobotWrapper()
+        PR = robot.pin_robot
         vicon = thread_head.vicon.get_state('solo8v2/solo8v2')
         q = np.hstack((vicon[0], head.get_sensor('joint_positions')))
         v = np.hstack((vicon[1], head.get_sensor('joint_velocities')))
@@ -216,10 +221,10 @@ class MyController:
         for i in range(4):
             frame_id = PR.model.getFrameId(robot.endeff_names[i])
             PR.framePlacement(q, index=frame_id)
-            J = robot.pin_robot.getFrameJacobian(frame_id=frame_id, rf_frame=pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
+            J = PR.getFrameJacobian(frame_id=frame_id, rf_frame=pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
 
             J_inv = np.linalg.pinv(J[:3][:,6+2*i:8+2*i].T) * -1
-            h = robot.pin_robot.nle(q, v)
+            h = PR.nle(q, v)
             _a = (np.hstack((np.zeros(6), thread_head.active_controllers[0].tau)) - h)[6+2*i:8+2*i]
             f[i] = J_inv @ _a 
         self.fz = f[:, 2]
@@ -260,7 +265,7 @@ if __name__ == "__main__":
     # Start the parallel processing.
     thread_head.start()
 
-    time.sleep(0.1)
+    time.sleep(2)
 
     thread_head.switch_controllers(my_controller)
     
