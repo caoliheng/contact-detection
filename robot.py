@@ -3,7 +3,7 @@ import numpy as np
 from numpy.core.function_base import linspace
 import pinocchio as pin
 import dynamic_graph_manager_cpp_bindings
-from robot_properties_solo.solo8wrapper import Solo8Config
+from robot_properties_solo.solo8wrapper import Solo8Config, Solo8Robot
 from dynamic_graph_head import ThreadHead, Vicon, HoldPDController
 # import imu_core.imu_core_cpp as IMU
 
@@ -144,7 +144,6 @@ class MyController:
 
         # GRF z
         self.fz = np.zeros(4)
-        self.fz_norm = np.zeros(4)
 
 
         ###
@@ -178,48 +177,50 @@ class MyController:
 
         return sliders_out
 
-    def get_vicon(self, name1, name2=None):
-        return np.hstack(thread_head.vicon.get_state(name1 + '/' + (name1 if name2 is None else name2)))
+    # def get_vicon(self, name1, name2=None):
+    #     return np.hstack(thread_head.vicon.get_state(name1 + '/' + (name1 if name2 is None else name2)))
     
     def _vicon(self, thread_head):
-        self.vicon_solo = self.get_vicon('solo8v2')
-        self.vicon_leg_fr = self.get_vicon('solo8_fr', 'hopper_foot')
-        self.vicon_leg_hl = self.get_vicon('solo8_hl', 'hopper_foot')
-        self.vicon_leg_hr = self.get_vicon('solo8_hr', 'hopper_foot')
+        pass
+        # self.vicon_solo = self.get_vicon('solo8v2')
+        # self.vicon_leg_fr = self.get_vicon('solo8_fr', 'hopper_foot')
+        # self.vicon_leg_hl = self.get_vicon('solo8_hl', 'hopper_foot')
+        # self.vicon_leg_hr = self.get_vicon('solo8_hr', 'hopper_foot')
         
 
     def _move(self, thread_head):
-        # if self.with_sliders:
-        #     self.des_position = self.slider_scale * (
-        #         self.map_sliders(self.slider_positions) - self.slider_zero_pos
-        #         ) + self.zero_pos
-        # else:
-        #     # self.des_position = self.zero_pos
+        if self.with_sliders:
+            self.des_position = self.slider_scale * (
+                self.map_sliders(self.slider_positions) - self.slider_zero_pos
+                ) + self.zero_pos
+        else:
+            self.des_position = self.zero_pos
 
-        if self.L is None or self.i_L >= len(self.L):
-            self.L = np.linspace(self.joint_positions,
-                                self.Targets[self.i_Targets], num=self.num)
-            self.i_L = 0
-            self.i_Targets = (self.i_Targets + 1) % len(self.Targets)
+        # if self.L is None or self.i_L >= len(self.L):
+        #     self.L = np.linspace(self.joint_positions,
+        #                         self.Targets[self.i_Targets], num=self.num)
+        #     self.i_L = 0
+        #     self.i_Targets = (self.i_Targets + 1) % len(self.Targets)
 
-        self.des_position = self.L[self.i_L]
-        self.i_L += 1
+        # self.des_position = self.L[self.i_L]
+        # self.i_L += 1
 
-        self.tau = self.Kp * (self.des_position - self.joint_positions) - self.Kd * self.joint_velocities
+        # self.tau = self.Kp * (self.des_position - self.joint_positions) - self.Kd * self.joint_velocities
 
     def _GRF(self, thread_head):
         head = thread_head.head
-        robot = Solo8Config.buildRobotWrapper()
-        PR = robot.pin_robot
-        vicon = thread_head.vicon.get_state('solo8v2/solo8v2')
+        PR = Solo8Config.buildRobotWrapper()
+        # vicon = thread_head.vicon.get_state('solo8v2/solo8v2')
+        vicon = (np.zeros(7), np.zeros(6))
         q = np.hstack((vicon[0], head.get_sensor('joint_positions')))
         v = np.hstack((vicon[1], head.get_sensor('joint_velocities')))
+        endeff_names = ['FL_ANKLE', 'FR_ANKLE', 'HL_ANKLE', 'HR_ANKLE']
 
         PR.computeJointJacobians(q)
 
         f = np.zeros((4,3))
         for i in range(4):
-            frame_id = PR.model.getFrameId(robot.endeff_names[i])
+            frame_id = PR.model.getFrameId(endeff_names[i])
             PR.framePlacement(q, index=frame_id)
             J = PR.getFrameJacobian(frame_id=frame_id, rf_frame=pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
 
@@ -253,22 +254,22 @@ if __name__ == "__main__":
         hold_pd_controller,
         head,
         [
-            ('vicon', Vicon('172.24.117.119:801', [
-                'solo8v2/solo8v2',
-                'solo8_fr/hopper_foot',
-                'solo8_hl/hopper_foot',
-                'solo8_hr/hopper_foot'
-            ]))
+            # ('vicon', Vicon('172.24.117.119:801', [
+            #     'solo8v2/solo8v2',
+            #     'solo8_fr/hopper_foot',
+            #     'solo8_hl/hopper_foot',
+            #     'solo8_hr/hopper_foot'
+            # ]))
         ]
     )
 
     # Start the parallel processing.
     thread_head.start()
 
-    time.sleep(2)
+    time.sleep(0.1)
 
     thread_head.switch_controllers(my_controller)
     
     thread_head.start_logging()
-    time.sleep(5)
+    time.sleep(3)
     thread_head.stop_logging()
