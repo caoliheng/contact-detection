@@ -2,7 +2,7 @@ import time
 import numpy as np
 import pinocchio as pin
 import dynamic_graph_manager_cpp_bindings
-from robot_properties_solo.solo8wrapper import Solo8Config, Solo8Robot
+from robot_properties_solo.solo8wrapper import Solo8Config
 from dynamic_graph_head import ThreadHead, Vicon, HoldPDController
 # import imu_core.imu_core_cpp as IMU
 
@@ -75,41 +75,41 @@ class FootSliderController:
         self.vicon_leg_hl = get_vicon('solo8_hl', 'hopper_foot')
         self.vicon_leg_hr = get_vicon('solo8_hr', 'hopper_foot')
 
-        # if self.with_sliders:
-        #     self.des_position = self.slider_scale * (
-        #         self.map_sliders(self.slider_positions) - self.slider_zero_pos
-        #         ) + self.zero_pos 
-        # else:
-        #     self.des_position = self.zero_pos
+        if self.with_sliders:
+            self.des_position = self.slider_scale * (
+                self.map_sliders(self.slider_positions) - self.slider_zero_pos
+                ) + self.zero_pos 
+        else:
+            self.des_position = self.zero_pos
 
         # linspace
         
-        if self.go == 0:
-            self.go = 1
-            target = self.joint_positions.copy()
-            target[5] += 0.5
-            self.L = np.linspace(self.joint_positions, target, num=self.num)
-        elif self.go == 1 and self.i_L >= self.L.shape[0]:
-            self.go = 2
-            self.i_L = 0
-            target = self.joint_positions.copy()
-            target[5] -= 0.5
-            self.L = np.linspace(self.joint_positions, target, num=self.num)
-        elif self.go == 2 and self.i_L >= self.L.shape[0]:
-            self.L[self.L.shape[0]]  # switch to safety controller
+        # if self.go == 0:
+        #     self.go = 1
+        #     target = self.joint_positions.copy()
+        #     target[5] += 0.5
+        #     self.L = np.linspace(self.joint_positions, target, num=self.num)
+        # elif self.go == 1 and self.i_L >= self.L.shape[0]:
+        #     self.go = 2
+        #     self.i_L = 0
+        #     target = self.joint_positions.copy()
+        #     target[5] -= 0.5
+        #     self.L = np.linspace(self.joint_positions, target, num=self.num)
+        # elif self.go == 2 and self.i_L >= self.L.shape[0]:
+        #     self.L[self.L.shape[0]]  # switch to safety controller
         
-        self.des_position = self.L[self.i_L]
-        self.i_L += 1
+        # self.des_position = self.L[self.i_L]
+        # self.i_L += 1
 
         self.tau = self.Kp * (self.des_position - self.joint_positions) - self.Kd * self.joint_velocities
 
-        self.tau[:4] = np.zeros(4)
-        self.tau[6:] = np.zeros(2)
+        # self.tau[:4] = np.zeros(4)
+        # self.tau[6:] = np.zeros(2)
 
         thread_head.head.set_control('ctrl_joint_torques', self.tau)
 
 class MyController:
-    def __init__(self, head, Kp, Kd, with_sliders=False, num=100):
+    def __init__(self, head, Kp, Kd, with_sliders=False, num=250):
         self.head = head
         self.Kp = Kp
         self.Kd = Kd
@@ -126,7 +126,6 @@ class MyController:
         # variables for trotting
         leg_down = 0.1
         leg_up = 0.2
-        extend = 0
         self.Targets = (
             # get_target(leg_down-extend, leg_down, leg_up, leg_up,
             #            leg_up, leg_up, leg_down+extend, leg_down),
@@ -142,10 +141,6 @@ class MyController:
 
         # GRF z
         self.fz = np.zeros(4)
-
-
-        ###
-        self.robot = Solo8Config.buildRobotWrapper()
 
     def warmup(self, thread_head):
         self.zero_pos = self.joint_positions.copy()
@@ -170,54 +165,50 @@ class MyController:
                 sliders_out[2 * i + 1] = 2. * (1. - slider_B)
 
                 if i >= 2:
-                    sliders_out[2 * i + 0] *= -1
-                    sliders_out[2 * i + 1] *= -1
+                    sliders_out[2 * i :2 * i + 2] *= -1
 
         return sliders_out
-
-    # def get_vicon(self, name1, name2=None):
-    #     return np.hstack(thread_head.vicon.get_state(name1 + '/' + (name1 if name2 is None else name2)))
     
-    def _vicon(self, thread_head):
-        pass
-        # self.vicon_solo = self.get_vicon('solo8v2')
-        # self.vicon_leg_fr = self.get_vicon('solo8_fr', 'hopper_foot')
-        # self.vicon_leg_hl = self.get_vicon('solo8_hl', 'hopper_foot')
-        # self.vicon_leg_hr = self.get_vicon('solo8_hr', 'hopper_foot')
-        
-
     def _move(self, thread_head):
         if self.with_sliders:
             self.des_position = self.slider_scale * (
                 self.map_sliders(self.slider_positions) - self.slider_zero_pos
                 ) + self.zero_pos
         else:
-            self.des_position = self.zero_pos
+            # self.des_position = self.zero_pos
 
-        # if self.L is None or self.i_L >= len(self.L):
-        #     self.L = np.linspace(self.joint_positions, self.Targets[self.i_Targets], num=self.num)
-        #     self.i_L = 0
-        #     self.i_Targets = (self.i_Targets + 1) % len(self.Targets)
+            if self.L is None or self.i_L >= len(self.L):
+                self.L = np.linspace(self.joint_positions, self.Targets[self.i_Targets], num=self.num)
+                self.i_L = 0
+                self.i_Targets = (self.i_Targets + 1) % len(self.Targets)
 
-        # self.des_position = self.L[self.i_L]
-        # self.i_L += 1
+            self.des_position = self.L[self.i_L]
+    
+            self.i_L += 1
 
-        # self.tau = self.Kp * (self.des_position - self.joint_positions) - self.Kd * self.joint_velocities
+    def get_vicon(self, name1, name2=None):
+        return np.hstack(thread_head.vicon.get_state(name1 + '/' + (name1 if name2 is None else name2)))
+    
+    def _vicon(self, thread_head):
+        # pass
+        self.vicon_solo = self.get_vicon('solo8v2')
+        self.vicon_leg_fr = self.get_vicon('solo8_fr', 'hopper_foot')
+        self.vicon_leg_hl = self.get_vicon('solo8_hl', 'hopper_foot')
+        self.vicon_leg_hr = self.get_vicon('solo8_hr', 'hopper_foot')
 
     def _GRF(self, thread_head):
         head = thread_head.head
         PR = Solo8Config.buildRobotWrapper()
-        # vicon = thread_head.vicon.get_state('solo8v2/solo8v2')
-        vicon = (np.zeros(7), np.zeros(6))
+        vicon = thread_head.vicon.get_state('solo8v2/solo8v2')
+        # vicon = (np.zeros(7), np.zeros(6))  # testing on no vicon system
         q = np.hstack((vicon[0], head.get_sensor('joint_positions')))
         v = np.hstack((vicon[1], head.get_sensor('joint_velocities')))
-        endeff_names = ['FL_ANKLE', 'FR_ANKLE', 'HL_ANKLE', 'HR_ANKLE']
 
         PR.computeJointJacobians(q)
 
         f = np.zeros((4,3))
-        for i in range(4):
-            frame_id = PR.model.getFrameId(endeff_names[i])
+        for i, endeff_name in enumerate(['FL_ANKLE', 'FR_ANKLE', 'HL_ANKLE', 'HR_ANKLE']): 
+            frame_id = PR.model.getFrameId(endeff_name)
             PR.framePlacement(q, index=frame_id)
             J = PR.getFrameJacobian(frame_id=frame_id, rf_frame=pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
 
@@ -229,10 +220,59 @@ class MyController:
         return f
 
     def run(self, thread_head):
-        self._move(thread_head)  # calculate tau
-        self._vicon(thread_head)  # vicon objects
-        self._GRF(thread_head)  # calculate GRF
+        # self._move(thread_head)  # calculate desired position
+        # self.tau = self.Kp * (self.des_position - self.joint_positions) - self.Kd * self.joint_velocities
+        # self._vicon(thread_head)  # vicon objects
+        # self._GRF(thread_head)  # calculate GRF
 
+        # _move
+        if self.with_sliders:
+            self.des_position = self.slider_scale * (
+                self.map_sliders(self.slider_positions) - self.slider_zero_pos
+                ) + self.zero_pos
+        else:
+            # self.des_position = self.zero_pos
+
+            if self.L is None or self.i_L >= len(self.L):
+                self.L = np.linspace(self.joint_positions, self.Targets[self.i_Targets], num=self.num)
+                self.i_L = 0
+                self.i_Targets = (self.i_Targets + 1) % len(self.Targets)
+
+            self.des_position = self.L[self.i_L]
+    
+            self.i_L += 1
+
+        self.tau = self.Kp * (self.des_position - self.joint_positions) - self.Kd * self.joint_velocities
+
+        # _vicon
+        self.vicon_solo = self.get_vicon('solo8v2')
+        self.vicon_leg_fr = self.get_vicon('solo8_fr', 'hopper_foot')
+        self.vicon_leg_hl = self.get_vicon('solo8_hl', 'hopper_foot')
+        self.vicon_leg_hr = self.get_vicon('solo8_hr', 'hopper_foot')
+
+        # _GRF
+        head = thread_head.head
+        PR = Solo8Config.buildRobotWrapper()
+        vicon = thread_head.vicon.get_state('solo8v2/solo8v2')
+        # vicon = (np.zeros(7), np.zeros(6))  # testing on no vicon system
+        q = np.hstack((vicon[0], head.get_sensor('joint_positions')))
+        v = np.hstack((vicon[1], head.get_sensor('joint_velocities')))
+
+        PR.computeJointJacobians(q)
+
+        f = np.zeros((4,3))
+        for i, endeff_name in enumerate(['FL_ANKLE', 'FR_ANKLE', 'HL_ANKLE', 'HR_ANKLE']): 
+            frame_id = PR.model.getFrameId(endeff_name)
+            PR.framePlacement(q, index=frame_id)
+            J = PR.getFrameJacobian(frame_id=frame_id, rf_frame=pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
+
+            J_inv = np.linalg.pinv(J[:3][:,6+2*i:8+2*i].T) * -1
+            h = PR.nle(q, v)
+            _a = (np.hstack((np.zeros(6), thread_head.active_controllers[0].tau)) - h)[6+2*i:8+2*i]
+            f[i] = J_inv @ _a 
+        self.fz = f[:, 2]
+
+        
         # self.tau = np.zeros(8)
         thread_head.head.set_control('ctrl_joint_torques', self.tau)
 
@@ -253,12 +293,12 @@ if __name__ == "__main__":
         hold_pd_controller,
         head,
         [
-            # ('vicon', Vicon('172.24.117.119:801', [
-            #     'solo8v2/solo8v2',
-            #     'solo8_fr/hopper_foot',
-            #     'solo8_hl/hopper_foot',
-            #     'solo8_hr/hopper_foot'
-            # ]))
+            ('vicon', Vicon('172.24.117.119:801', [
+                'solo8v2/solo8v2',
+                'solo8_fr/hopper_foot',
+                'solo8_hl/hopper_foot',
+                'solo8_hr/hopper_foot'
+            ]))
         ]
     )
 
@@ -267,9 +307,9 @@ if __name__ == "__main__":
 
     time.sleep(0.1)
 
-    # thread_head.switch_controllers(my_controller)
-    thread_head.switch_controllers(foot_slider_controller)
+    thread_head.switch_controllers(my_controller)
+    # thread_head.switch_controllers(foot_slider_controller)
     
     thread_head.start_logging()
-    time.sleep(3)
+    time.sleep(5)
     thread_head.stop_logging()
