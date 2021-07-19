@@ -1,6 +1,5 @@
 import time
 import numpy as np
-from numpy.core.function_base import linspace
 import pinocchio as pin
 import dynamic_graph_manager_cpp_bindings
 from robot_properties_solo.solo8wrapper import Solo8Config, Solo8Robot
@@ -11,8 +10,8 @@ from dynamic_graph_head import ThreadHead, Vicon, HoldPDController
 def get_target(*args):
     angle_adjust = np.array([1, -2, 1, -2, -1, 2, -1, 2]) * np.pi
     if len(args) == 4:
-        return np.array(list(args[i//2] for i in range(8))) * np.array([1, -2, 1, -2, -1, 2, -1, 2]) * np.pi
-    return np.array(args) * np.array([1, -2, 1, -2, -1, 2, -1, 2]) * np.pi
+        return np.array(list(args[i//2] for i in range(8))) * angle_adjust
+    return np.array(args) * angle_adjust
 
 
 class FootSliderController:
@@ -60,8 +59,7 @@ class FootSliderController:
                 sliders_out[2 * i + 1] = 2. * (1. - slider_B)
 
                 if i >= 2:
-                    sliders_out[2 * i + 0] *= -1
-                    sliders_out[2 * i + 1] *= -1
+                    sliders_out[2 * i: 2 * i + 2] *= -1
 
         return sliders_out
 
@@ -197,8 +195,7 @@ class MyController:
             self.des_position = self.zero_pos
 
         # if self.L is None or self.i_L >= len(self.L):
-        #     self.L = np.linspace(self.joint_positions,
-        #                         self.Targets[self.i_Targets], num=self.num)
+        #     self.L = np.linspace(self.joint_positions, self.Targets[self.i_Targets], num=self.num)
         #     self.i_L = 0
         #     self.i_Targets = (self.i_Targets + 1) % len(self.Targets)
 
@@ -249,6 +246,8 @@ if __name__ == "__main__":
 
     my_controller = MyController(head, 3., 0.05, with_sliders=True, num=250)
 
+    foot_slider_controller = FootSliderController(head, 3., 0.05, with_sliders=True)
+
     thread_head = ThreadHead(
         0.001,
         hold_pd_controller,
@@ -268,7 +267,8 @@ if __name__ == "__main__":
 
     time.sleep(0.1)
 
-    thread_head.switch_controllers(my_controller)
+    # thread_head.switch_controllers(my_controller)
+    thread_head.switch_controllers(foot_slider_controller)
     
     thread_head.start_logging()
     time.sleep(3)
