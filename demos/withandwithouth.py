@@ -12,7 +12,7 @@ from robot_properties_solo.solo12wrapper import Solo12Config
 plt.rcParams['figure.dpi'] = 144  # default 72.0, make plot bigger
 
 pin_robot = Solo12Config.buildRobotWrapper()
-reader = DataReader('2021-07-20_11-10-52_reactive.mds')
+reader = DataReader('../2021-07-20_11-10-52_reactive.mds')
 
 reader_q = reader.data['q']
 reader_dq = reader.data['dq']
